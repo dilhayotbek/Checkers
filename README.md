@@ -1,2 +1,2 @@
-# Master Checkers offline
+# Checkolix checkers
 Это шашки которые можно играть когда угодно!
