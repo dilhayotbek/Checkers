@@ -1,0 +1,578 @@
+<!Doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Шашки — рабочая версия</title>
+<style>
+:root{
+  --board-size: 520px;
+  --cell: calc(var(--board-size)/8);
+  --brown: #8B4513;
+  --cream: #f7efe0;
+  --accent: #ffd86b;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+  background: linear-gradient(180deg,#071623 0%, #0d2a3a 60%, #071018 100%);
+  color:#eee;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:100vh;
+  padding:18px;
+}
+
+/* Layout */
+.container{ width:100%; max-width:1000px; display:grid; grid-template-columns: 300px 1fr; gap:20px; }
+
+.panel{
+  background: rgba(255,255,255,0.03);
+  border-radius:12px; padding:14px; border:1px solid rgba(255,255,255,0.04);
+}
+.logo{ width:48px;height:48px;border-radius:8px;background:linear-gradient(135deg,#111,#000);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:700 }
+.h1{margin:0;color:#fff;font-size:18px}
+.lead{color:#cfe0e8;font-size:13px;margin-top:6px}
+
+/* Buttons */
+.btn{ display:inline-block;padding:9px 12px;border-radius:10px;border:none;background:linear-gradient(180deg,#c68628,#9b5a06);color:#111;font-weight:700;cursor:pointer; box-shadow: 0 8px 22px rgba(0,0,0,0.5); }
+.btn.secondary{ background: linear-gradient(180deg,#1e2b33,#071219); color:var(--accent); box-shadow:0 8px 20px rgba(0,0,0,0.5); }
+.small{ padding:7px 9px;font-size:13px;border-radius:8px }
+
+.status{ margin-top:12px; padding:10px; border-radius:8px; background:rgba(0,0,0,0.18); display:flex; justify-content:space-between; align-items:center; color:#fff; }
+
+/* board */
+.board-wrap{ padding:14px; border-radius:12px; background: linear-gradient(180deg, rgba(0,0,0,0.28), rgba(0,0,0,0.6)); }
+.board{ width:var(--board-size); height:var(--board-size); display:grid; grid-template-columns:repeat(8,var(--cell)); grid-template-rows:repeat(8,var(--cell)); border-radius:8px; overflow:hidden; }
+.cell{ width:var(--cell); height:var(--cell); display:flex; align-items:center; justify-content:center; }
+.whiteCell{ background: linear-gradient(180deg,#f7efe0,#efe4cf); }
+.brown{ background: linear-gradient(180deg,#8B4513,#6b3f12); }
+
+/* pieces */
+.checker{ width:calc(var(--cell)*0.82); height:calc(var(--cell)*0.82); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; user-select:none; box-shadow: 0 8px 20px rgba(0,0,0,0.5), inset 0 2px 6px rgba(255,255,255,0.03); transition: transform .12s; }
+.checker:active{ transform: translateY(2px); }
+.whiteChecker{ background:linear-gradient(180deg,#fff,#e6e6e6); color:#111; border:2px solid rgba(0,0,0,0.12); }
+.blackChecker{ background:linear-gradient(180deg,#111,#000); color:#fff; border:2px solid rgba(255,255,255,0.03); }
+
+.selected{ outline:3px solid rgba(255,215,107,0.95); outline-offset:4px; box-shadow:0 0 0 6px rgba(255,215,107,0.06); }
+.highlight{ box-shadow: inset 0 0 0 3px rgba(255,255,255,0.03), 0 8px 20px rgba(0,0,0,0.4); border-radius:8px }
+
+/* Dama (King) - YANGI KO'RINISHI (CSS) */
+.king{
+  position:relative; 
+  box-shadow: 0 8px 20px rgba(0,0,0,0.5), inset 0 2px 6px rgba(255,255,255,0.03), 0 0 0 4px var(--accent);
+}
+.king::after{
+  content: "♔"; /* Oq dama uchun qirol belgisi */
+  font-size: 26px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #111;
+  text-shadow: 0 0 4px rgba(255,255,255,0.8);
+  font-weight: 900;
+}
+.blackChecker.king::after{
+  content: "♛"; /* Qora dama uchun qirol belgisi */
+  color: #fff;
+  text-shadow: 0 0 4px rgba(0,0,0,0.8);
+}
+
+/* small */
+.note{ font-size:13px; color:#cfe0e8; margin-top:10px }
+
+@media (max-width:900px){
+  .container{ grid-template-columns: 1fr; }
+  .board{ transform:scale(0.9); transform-origin:top left }
+}
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="panel">
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="logo">Ш</div>
+        <div>
+          <div class="h1">Шашки — рабочая</div>
+          <div class="lead">Белые ходят первыми. Обязательное взятие. Дамки — короны.</div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <button id="playBtn" class="btn">Играть</button>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button id="russianBtn" class="btn secondary small">Русские</button>
+          <button id="americanBtn" class="btn secondary small">Американские</button>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button id="restartBtn" class="btn small" style="background:linear-gradient(180deg,#ffb84d,#ff8c00)">Перезапустить</button>
+          <button id="menuBtn" class="btn secondary small">В меню</button>
+        </div>
+      </div>
+
+      <div class="status" style="margin-top:12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div id="turnDot" style="width:18px;height:18px;border-radius:50%;background:linear-gradient(180deg,#fff,#ddd);box-shadow:0 2px 6px rgba(0,0,0,0.5)"></div>
+          <div id="turnText">Ход: белые</div>
+        </div>
+        <div id="typeLabel">Тип: Русские</div>
+      </div>
+
+      <div class="note">
+        <ul style="margin:8px 0 0 16px">
+          <li>Клик — выбрать шашку; клик — выбрать клетку.</li>
+          <li>Клик по своей шашке меняет выделение.</li>
+          <li>Если можно взять — ход обязателен.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="color:#fff;font-weight:700">Доска шашек</div>
+        <div style="display:flex;gap:8px">
+          <div id="info" style="color:#fff">Готово</div>
+          <button id="resetBtn" class="btn secondary small">Сброс</button>
+        </div>
+      </div>
+
+      <div class="board-wrap">
+        <div id="board" class="board"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* --- Game state --- */
+const boardEl = document.getElementById('board');
+const playBtn = document.getElementById('playBtn');
+const russianBtn = document.getElementById('russianBtn');
+const americanBtn = document.getElementById('americanBtn');
+const restartBtn = document.getElementById('restartBtn');
+const menuBtn = document.getElementById('menuBtn');
+const resetBtn = document.getElementById('resetBtn');
+const turnDot = document.getElementById('turnDot');
+const turnText = document.getElementById('turnText');
+const typeLabel = document.getElementById('typeLabel');
+const infoEl = document.getElementById('info');
+
+let boardState = [];
+let cells = [];
+let selected = null;
+let turn = 'white';
+let gameType = 'russian';
+let gameActive = true; // O'yin holatini kuzatish
+
+function inBoard(r,c){ return r>=0 && r<8 && c>=0 && c<8; }
+
+function createBoard(){
+  boardEl.innerHTML = '';
+  cells = [];
+  boardState = [];
+  for(let r=0;r<8;r++){
+    boardState[r]=[];
+    for(let c=0;c<8;c++){
+      const cell = document.createElement('div');
+      cell.classList.add('cell');
+      cell.dataset.row = r; cell.dataset.col = c;
+      if((r+c)%2===0) cell.classList.add('whiteCell'); else cell.classList.add('brown');
+      boardEl.appendChild(cell);
+      cells.push(cell);
+      boardState[r][c] = null;
+    }
+  }
+}
+
+function getCell(r,c){ return cells[r*8 + c]; }
+
+function addChecker(r,c,color){
+  const el = document.createElement('div');
+  el.classList.add('checker', color === 'white' ? 'whiteChecker' : 'blackChecker');
+  el.dataset.king = 'false';
+  getCell(r,c).appendChild(el);
+  boardState[r][c] = el;
+}
+
+function placeCheckers(){
+  // clear
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++) boardState[r][c] = null;
+  // white top
+  for(let r=0;r<3;r++){
+    for(let c=0;c<8;c++){
+      if((r+c)%2!==0) addChecker(r,c,'white');
+    }
+  }
+  // black bottom
+  for(let r=5;r<8;r++){
+    for(let c=0;c<8;c++){
+      if((r+c)%2!==0) addChecker(r,c,'black');
+    }
+  }
+}
+
+function updateTurnUI(){
+  if(turn==='white'){ turnDot.style.background='linear-gradient(180deg,#fff,#ddd)'; turnText.textContent='Ход: белые'; }
+  else { turnDot.style.background='linear-gradient(180deg,#111,#000)'; turnText.textContent='Ход: чёрные'; }
+}
+
+/* --- VICTORY CHECK LOGIC (YANGI) --- */
+function countPieces(color){
+    let count = 0;
+    for(let r=0; r<8; r++){
+        for(let c=0; c<8; c++){
+            const p = boardState[r][c];
+            if(p && p.classList.contains(color === 'white' ? 'whiteChecker' : 'blackChecker')){
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
+function playerHasMoves(color){
+    for(let r=0; r<8; r++){
+        for(let c=0; c<8; c++){
+            const p = boardState[r][c];
+            if(!p) continue;
+            const pieceColor = p.classList.contains('whiteChecker') ? 'white' : 'black';
+            if(pieceColor !== color) continue;
+
+            if(getJumpsForChecker(r,c,color).length > 0 || getSimpleMoves(r,c,color).length > 0){
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function checkVictory(){
+    const whitePieces = countPieces('white');
+    const blackPieces = countPieces('black');
+
+    if(whitePieces === 0){
+        endGame('Чёрные');
+        return true;
+    }
+    if(blackPieces === 0){
+        endGame('Белые');
+        return true;
+    }
+
+    // Navbatdagi o'yinchida yurish qolmagan bo'lsa
+    if (!playerHasMoves(turn)){
+        const winner = (turn === 'white') ? 'Чёрные' : 'Белые';
+        endGame(winner, true);
+        return true;
+    }
+
+    return false;
+}
+
+function endGame(winner, noMoves = false){
+    gameActive = false;
+    selected = null;
+    clearHighlights();
+    
+    let message;
+    if (noMoves) {
+        message = `Победа: ${winner}! Сопернику некуда ходить (Пат).`;
+    } else {
+        message = `Победа: ${winner}! Все шашки соперника съедены.`;
+    }
+    
+    infoEl.innerHTML = `<span style="color:var(--accent); font-weight:700">${message}</span>`;
+    turnText.textContent = 'Игра окончена';
+    turnDot.style.background = 'transparent'; 
+}
+/* --- END VICTORY CHECK LOGIC --- */
+
+/* --- Jump logic (ASL KODINGIZ) --- */
+function getJumpsForChecker(r,c,color){
+  const ch = boardState[r][c];
+  if(!ch) return [];
+  const king = ch.dataset.king === 'true';
+  const res = [];
+  const dirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
+  if(!king){
+    for(const [dx,dy] of dirs){
+      const mr = r + dy, mc = c + dx;
+      const tr = r + dy*2, tc = c + dx*2;
+      if(!inBoard(tr,tc)) continue;
+      if(boardState[tr][tc]) continue;
+      const mid = boardState[mr][mc];
+      if(mid && mid.classList.contains(color==='white'?'blackChecker':'whiteChecker')) res.push([tr,tc]);
+    }
+  } else {
+    for(const [dx,dy] of dirs){
+      let x = c + dx, y = r + dy;
+      let enemy = null;
+      while(inBoard(y,x)){
+        const p = boardState[y][x];
+        if(p){
+          if(p.classList.contains(color==='white'?'whiteChecker':'blackChecker')) break;
+          if(!enemy){
+            enemy = [y,x];
+            let bx = x + dx, by = y + dy;
+            while(inBoard(by,bx)){
+              if(boardState[by][bx]) break;
+              res.push([by,bx]);
+              bx += dx; by += dy;
+            }
+            break;
+          } else break;
+        }
+        x += dx; y += dy;
+      }
+    }
+  }
+  return res;
+}
+
+function playerHasJumps(color){
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+    const p = boardState[r][c]; if(!p) continue;
+    const col = p.classList.contains('whiteChecker') ? 'white' : 'black';
+    if(col !== color) continue;
+    if(getJumpsForChecker(r,c,col).length>0) return true;
+  }
+  return false;
+}
+
+function getSimpleMoves(r,c,color){
+  const ch = boardState[r][c]; if(!ch) return [];
+  const king = ch.dataset.king === 'true';
+  const res = [];
+  const dirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
+  if(!king){
+    for(const [dx,dy] of dirs){
+      const tr = r + dy, tc = c + dx;
+      if(!inBoard(tr,tc)) continue;
+      if(boardState[tr][tc]) continue;
+      const forwardOK = (color==='white' && tr>r) || (color==='black' && tr<r);
+      if(Math.abs(tr-r)===1 && forwardOK) res.push([tr,tc]);
+    }
+  } else {
+    for(const [dx,dy] of dirs){
+      let x = c + dx, y = r + dy;
+      while(inBoard(y,x)){
+        if(boardState[y][x]) break;
+        res.push([y,x]);
+        x += dx; y += dy;
+      }
+    }
+  }
+  return res;
+}
+
+function isValidMove(fr,fc,tr,tc,color){
+  if(!inBoard(fr,fc) || !inBoard(tr,tc)) return false;
+  const ch = boardState[fr][fc]; if(!ch) return false;
+  if(boardState[tr][tc]) return false;
+  const king = ch.dataset.king === 'true';
+
+  if(!king){
+    const dr = tr - fr, dc = tc - fc;
+    if(Math.abs(dr)===1 && Math.abs(dc)===1){
+      const forwardOK = (color==='white' && dr>0) || (color==='black' && dr<0);
+      return forwardOK;
+    }
+    if(Math.abs(dr)===2 && Math.abs(dc)===2){
+      const mr=(fr+tr)/2, mc=(fc+tc)/2;
+      const mid = boardState[mr][mc];
+      return mid && mid.classList.contains(color==='white'?'blackChecker':'whiteChecker');
+    }
+    return false;
+  } else {
+    if(Math.abs(tr-fr) !== Math.abs(tc-fc)) return false;
+    const steps = Math.abs(tr-fr);
+    const sx = (tc-fc)/steps, sy = (tr-fr)/steps;
+    let x = fc + sx, y = fr + sy;
+    let enemyCount = 0;
+    while(x !== tc && y !== tr){
+      const p = boardState[y][x];
+      if(p){
+        if(p.classList.contains(color==='white'?'whiteChecker':'blackChecker')) return false;
+        enemyCount++;
+        if(enemyCount>1) return false;
+      }
+      x += sx; y += sy;
+    }
+    return true;
+  }
+}
+
+function isCaptureMove(fr,fc,tr,tc,color){
+  const ch = boardState[fr][fc];
+  if(!ch) return false;
+  const king = ch.dataset.king === 'true';
+
+  if(!king){
+    return Math.abs(fr-tr)===2 && Math.abs(fc-tc)===2;
+  } else {
+    if(Math.abs(fr-tr)!==Math.abs(fc-tc)) return false;
+    const steps = Math.abs(tr-fr);
+    const sx = (tc-fc)/steps, sy=(tr-fr)/steps;
+    let x = fc + sx, y = fr + sy;
+    while(x!==tc && y!==tr){
+      const p = boardState[y][x];
+      if(p && !p.classList.contains(color==='white'?'whiteChecker':'blackChecker')) return true;
+      x += sx; y += sy;
+    }
+    return false;
+  }
+}
+
+function performMove(fr,fc,tr,tc){
+  const ch = boardState[fr][fc];
+  if(!ch) return false;
+  const color = ch.classList.contains('whiteChecker') ? 'white' : 'black';
+  const wasKing = ch.dataset.king === 'true';
+  boardState[tr][tc] = ch;
+  boardState[fr][fc] = null;
+  getCell(tr,tc).appendChild(ch);
+
+  // promote
+  if(!wasKing){
+    if(color==='white' && tr===7){ ch.dataset.king='true'; ch.classList.add('king'); }
+    if(color==='black' && tr===0){ ch.dataset.king='true'; ch.classList.add('king'); }
+  }
+
+  // capture removal
+  let didCapture = false;
+  if(!wasKing){
+    if(Math.abs(fr-tr)===2){
+      const mr=(fr+tr)/2, mc=(fc+tc)/2;
+      const mid = boardState[mr][mc];
+      if(mid){ boardState[mr][mc]=null; getCell(mr,mc).removeChild(mid); didCapture = true; }
+    }
+  } else {
+    const steps = Math.abs(tr-fr);
+    const sx = (tc-fc)/steps, sy=(tr-fr)/steps;
+    let x = fc + sx, y = fr + sy;
+    while(x!==tc && y!==tr){
+      const p = boardState[y][x];
+      if(p && !p.classList.contains(color==='white'?'whiteChecker':'blackChecker')){
+        boardState[y][x] = null;
+        getCell(y,x).removeChild(p);
+        didCapture = true;
+        break;
+      }
+      x += sx; y += sy;
+    }
+  }
+  return didCapture;
+}
+
+/* highlights */
+function clearHighlights(){ cells.forEach(c=>c.classList.remove('highlight')); }
+function highlight(list){ clearHighlights(); for(const [r,c] of list){ getCell(r,c).classList.add('highlight'); } }
+
+/* click handler */
+boardEl.addEventListener('click', (ev) => {
+  if (!gameActive) return; // Agar o'yin tugagan bo'lsa, harakatlarni bloklash
+
+  const t = ev.target;
+  if(!t.classList.contains('checker') && !t.classList.contains('cell')) return;
+  const cell = t.classList.contains('cell') ? t : t.parentElement;
+  const r = parseInt(cell.dataset.row), c = parseInt(cell.dataset.col);
+
+  if(selected){
+    const fr = parseInt(selected.parentElement.dataset.row), fc = parseInt(selected.parentElement.dataset.col);
+    const color = selected.classList.contains('whiteChecker') ? 'white' : 'black';
+    const mustJump = playerHasJumps(color);
+
+    // clicking own piece -> switch select
+    if(t.classList.contains('checker')){
+      const newColor = t.classList.contains('whiteChecker') ? 'white' : 'black';
+      if(newColor === color){
+        selected.classList.remove('selected');
+        selected = t;
+        selected.classList.add('selected');
+        const jumps = getJumpsForChecker(parseInt(selected.parentElement.dataset.row), parseInt(selected.parentElement.dataset.col), color);
+        if(jumps.length) highlight(jumps); else highlight(getSimpleMoves(parseInt(selected.parentElement.dataset.row), parseInt(selected.parentElement.dataset.col), color));
+        return;
+      }
+    }
+
+    // attempt move
+    if(isValidMove(fr,fc,r,c,color)){
+      const capture = isCaptureMove(fr,fc,r,c,color);
+      if(mustJump && !capture){ infoEl.textContent = 'Обязательное взятие!'; alert('Вы обязаны взять шашку!'); return; }
+      
+      const didCapture = performMove(fr,fc,r,c);
+      
+      // G'alaba tekshiruvi (Harakatdan keyin)
+      if (checkVictory()) {
+          selected = null; clearHighlights(); return;
+      }
+
+      selected.classList.remove('selected'); selected = null; clearHighlights();
+
+      if(didCapture){
+        const further = getJumpsForChecker(r,c,color);
+        if(further.length){
+          selected = boardState[r][c];
+          selected.classList.add('selected');
+          highlight(further);
+          infoEl.textContent = 'Продолжайте брать (цепное взятие)';
+          return; // don't change turn
+        }
+      }
+
+      // otherwise change turn
+      turn = (turn==='white') ? 'black' : 'white';
+      updateTurnUI();
+      infoEl.textContent = 'Ход: ' + (turn==='white' ? 'белых' : 'чёрных');
+      // G'alaba tekshiruvi (Navbat o'tgandan keyin - Pat/Imkoniyat yo'qligi)
+      checkVictory();
+      return;
+    } else {
+      // invalid -> deselect
+      selected.classList.remove('selected'); selected = null; clearHighlights();
+      infoEl.textContent = 'Недопустимый ход';
+      return;
+    }
+  } else {
+    // no selection -> select if it's our piece
+    if(t.classList.contains('checker')){
+      const color = t.classList.contains('whiteChecker') ? 'white' : 'black';
+      if(color !== turn) return;
+      selected = t; selected.classList.add('selected');
+      const rr = parseInt(selected.parentElement.dataset.row), cc = parseInt(selected.parentElement.dataset.col);
+      const jumps = getJumpsForChecker(rr,cc,color);
+      
+      const mustJump = playerHasJumps(color);
+      if(mustJump && jumps.length === 0){
+        infoEl.textContent = 'Обязательное взятие другой шашкой';
+        selected.classList.remove('selected'); selected = null;
+        return;
+      }
+
+      if(jumps.length) highlight(jumps); else highlight(getSimpleMoves(rr,cc,color));
+    }
+  }
+});
+
+/* controls */
+function startGame(){
+  gameActive = true;
+  selected = null; turn = 'white'; gameType = gameType || 'russian';
+  updateTurnUI(); infoEl.textContent = 'Игра начата';
+  typeLabel.textContent = 'Тип: ' + (gameType==='russian' ? 'Русские' : 'Американские');
+  createBoard(); placeCheckers(); clearHighlights();
+}
+playBtn.addEventListener('click', () => startGame());
+russianBtn.addEventListener('click', () => { gameType='russian'; startGame(); });
+americanBtn.addEventListener('click', () => { gameType='american'; startGame(); });
+restartBtn.addEventListener('click', () => startGame());
+resetBtn.addEventListener('click', () => startGame());
+menuBtn.addEventListener('click', ()=> { infoEl.textContent = 'В меню'; });
+
+/* init */
+startGame();
+</script>
+</body>
+</html>
